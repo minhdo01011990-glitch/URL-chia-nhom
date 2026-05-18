@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "url-labeler": {
+      "command": "url-labeler-server"
+    }
+  }
+}

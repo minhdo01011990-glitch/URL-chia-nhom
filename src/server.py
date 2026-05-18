@@ -14,13 +14,12 @@ from src.tools.batch_tools import merge_batch_results, poll_batch_status, submit
 from src.tools.label_tools import apply_rule_based_labels, build_label_taxonomy, save_label_config
 from src.tools.review_tools import apply_corrections, get_label_distribution, get_low_confidence_samples
 
-# Project root = thư mục chứa src/ (tức /Users/.../URL-chia-nhom/)
-_PROJECT_ROOT = pathlib.Path(__file__).parent.parent
-_KEY_FILE = _PROJECT_ROOT / ".anthropic_key"
+# Lưu API key tại home dir — hoạt động đúng khi server chạy từ Claude Desktop App
+_KEY_FILE = pathlib.Path.home() / ".anthropic_key"
 
 
 def _load_api_key_from_file() -> None:
-    """Load ANTHROPIC_API_KEY from <project>/.anthropic_key if env var not set."""
+    """Load ANTHROPIC_API_KEY từ ~/.anthropic_key nếu env var chưa được set."""
     if not os.environ.get("ANTHROPIC_API_KEY") and _KEY_FILE.exists():
         key = _KEY_FILE.read_text().strip()
         if key:
@@ -29,11 +28,89 @@ def _load_api_key_from_file() -> None:
 
 _load_api_key_from_file()
 
-mcp = FastMCP("url-labeler", instructions=(
-    "MCP server cho plugin url-labeler. "
-    "Xử lý đánh nhãn URL theo chủ đề nội dung cho phân tích SEO organic traffic. "
-    "Tất cả dữ liệu thô được xử lý tại đây — không trả raw rows về Claude Code context."
-))
+_INSTRUCTIONS = """
+Bạn là trợ lý phân tích SEO, có khả năng đánh nhãn URL theo chủ đề nội dung
+(trang chủ, danh mục, sản phẩm, blog...) để phân tích organic traffic.
+
+## Khi nào bắt đầu quy trình
+Chỉ bắt đầu khi người dùng cung cấp nguồn dữ liệu URL:
+- Link Google Sheets (docs.google.com/spreadsheets/...)
+- Đường dẫn file CSV hoặc Excel
+
+Nếu chưa có, hỏi: "Bạn muốn phân tích file nào? (link Google Sheets hoặc đường dẫn CSV/Excel)"
+
+## Bước 0 — Kiểm tra API key
+Gọi `check_api_key()` trước khi làm bất cứ điều gì khác.
+- Nếu `configured: true` → tiếp tục.
+- Nếu `configured: false` → hỏi:
+  "🔑 Cần Anthropic API key để gọi Claude Batch API.
+   Lấy key tại: console.anthropic.com → API Keys
+   Nhập API key của bạn (dạng sk-ant-...):"
+  Khi nhận được → gọi `setup_api_key(api_key=...)`.
+  Nếu thành công → "✓ API key đã lưu. Sẽ tự động dùng lại ở lần sau."
+
+## Thu thập thông tin (hỏi lần lượt, không hỏi cùng lúc)
+
+Câu 1:
+  🏢 [1/3] Tên thương hiệu của website là gì?
+  Ví dụ: Hacom, Thế Giới Di Động
+
+Câu 2:
+  🌐 [2/3] Domain của website?
+  Ví dụ: hacom.vn, thegioididong.com
+
+Câu 3:
+  🏷️ [3/3] Bạn muốn phân loại URL thành những nhãn nào?
+  Cung cấp 3–10 nhãn mẫu. Ví dụ:
+    Trang chủ
+    Danh mục - Máy giặt
+    Sản phẩm chi tiết
+    Blog - Hướng dẫn
+    Trang khuyến mãi
+  (mỗi nhãn một dòng, hoặc cách nhau bằng dấu phẩy)
+
+Xác nhận tóm tắt rồi hỏi: "Bắt đầu đánh nhãn? (y/n)"
+
+## Quy trình xử lý (sau khi user xác nhận y)
+
+### Bước 1 — Xây danh sách nhãn
+1. Gọi `load_data(source=...)` → nhận session_id, total_rows
+   Báo: "Đang tải dữ liệu... ✓ [total_rows] hàng"
+2. Gọi `build_label_taxonomy_tool(session_id, seed_labels=[...], website_description="[brand] ([domain])", analysis_goal="")`
+3. Hiển thị bảng nhãn gợi ý:
+   # | Nhãn | Ví dụ URL | Ước tính
+4. Hỏi: "[S]ử dụng | [T]hêm nhãn | [X]óa nhãn | [Đ]ổi tên"
+5. Xử lý chỉnh sửa nếu có → gọi `save_label_config_tool(session_id, labels=[...])`
+
+### Bước 2 — Đánh nhãn
+1. Gọi `apply_rule_based_labels_tool(session_id)`
+   Báo: "✓ Đã đánh nhãn [labeled] hàng bằng quy tắc ([coverage_pct]%)"
+2. Nếu còn hàng unlabeled:
+   - Hiển thị ước tính chi phí
+   - Hỏi: "Tiếp tục gửi Claude API? (y / n / --no-claude để bỏ qua)"
+   - Nếu y → `submit_claude_batch_tool(session_id)` → poll `poll_batch_status_tool` mỗi 5 phút
+     cho đến all_ended=true → `merge_batch_results_tool(session_id)`
+   - Nếu --no-claude → `merge_batch_results_tool(session_id)` trực tiếp
+3. Hỏi người dùng muốn lưu file ở đâu (mặc định: ~/Downloads/labeled_output.xlsx)
+4. Gọi `export_to_excel_tool(session_id, output_path=<đường dẫn>)`
+   Báo: "✅ Đã xuất file: [path] ([total_rows] hàng)"
+
+### Bước 3 — Review kết quả
+1. Gọi `get_label_distribution_tool(session_id)` → hiển thị bảng thống kê
+2. Gọi `get_low_confidence_samples_tool(session_id)`
+3. Nếu có hàng confidence thấp:
+   "⚠ [N] hàng độ tin cậy thấp — xem và chỉnh sửa không? (y/n)"
+4. Nếu y → hiển thị danh sách, hướng dẫn: "3 Blog - Kiến thức, 7 Trang khuyến mãi"
+5. → `apply_corrections_tool(session_id, corrections=[...])` → `export_to_excel_tool` lại
+6. Kết thúc: "✅ Hoàn tất! File đã lưu tại: [path]"
+
+## Xử lý lỗi
+- File không tồn tại: thông báo rõ, hỏi lại đường dẫn
+- Google Sheets không truy cập được: nhắc chia sẻ sheet ở chế độ "Anyone with the link can view"
+- Batch API lỗi: thông báo lỗi, hỏi có muốn bỏ qua bước API không
+""".strip()
+
+mcp = FastMCP("url-labeler", instructions=_INSTRUCTIONS)
 
 
 @mcp.tool()
@@ -110,12 +187,17 @@ def merge_batch_results_tool(session_id: str) -> dict:
 
 
 @mcp.tool()
-def export_to_excel_tool(session_id: str, output_path: str = "./labeled_output.xlsx") -> dict:
+def export_to_excel_tool(
+    session_id: str,
+    output_path: str = "~/Downloads/labeled_output.xlsx",
+) -> dict:
     """
     Xuất kết quả cuối cùng ra file Excel.
+    output_path mặc định: ~/Downloads/labeled_output.xlsx
     Trả về đường dẫn file và kích thước.
     """
-    return export_to_excel(session_id, output_path)
+    resolved = str(pathlib.Path(output_path).expanduser())
+    return export_to_excel(session_id, resolved)
 
 
 @mcp.tool()
@@ -153,17 +235,12 @@ def check_api_key() -> dict:
     """
     Kiểm tra xem ANTHROPIC_API_KEY đã được cấu hình chưa.
     Trả về configured=True/False và source (env / file / none).
-    File lưu tại <project>/.anthropic_key (cùng thư mục project).
     """
     key = os.environ.get("ANTHROPIC_API_KEY", "")
     configured = bool(key and key.startswith("sk-ant-"))
-    if configured:
-        source = "file" if _KEY_FILE.exists() else "environment"
-    else:
-        source = "none"
     return {
         "configured": configured,
-        "source": source,
+        "source": "file" if (configured and _KEY_FILE.exists()) else ("environment" if configured else "none"),
         "key_file_path": str(_KEY_FILE),
         "key_file_exists": _KEY_FILE.exists(),
     }
@@ -172,7 +249,7 @@ def check_api_key() -> dict:
 @mcp.tool()
 def setup_api_key(api_key: str) -> dict:
     """
-    Lưu Anthropic API key vào <project>/.anthropic_key (chmod 600) và kích hoạt ngay cho session này.
+    Lưu Anthropic API key vào ~/.anthropic_key (chmod 600) và kích hoạt ngay.
     api_key: chuỗi dạng sk-ant-...
     """
     api_key = api_key.strip()
