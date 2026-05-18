@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Entry point cho MCP server
+exec python -m src.server "$@"

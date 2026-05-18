@@ -1,0 +1,24 @@
+# API key — không commit lên Git
+.anthropic_key
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+
+# Data & output
+*.parquet
+labeled_output.xlsx
+
+# Test cache
+.pytest_cache/
+
+# Claude Code internal files
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
+
+# macOS
+.DS_Store

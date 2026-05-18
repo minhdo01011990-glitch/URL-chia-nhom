@@ -1,0 +1,21 @@
+{
+  "name": "url-labeler",
+  "version": "1.0.0",
+  "description": "Đánh nhãn URL cho phân tích organic traffic theo chủ đề (SEO). Hỗ trợ đến 75,000 hàng.",
+  "author": {
+    "name": "maytinh",
+    "email": "minhdo01011990@gmail.com"
+  },
+  "repository": "https://github.com/maytinh/url-labeler",
+  "license": "MIT",
+  "skills": [
+    "skills/start",
+    "skills/build-labels",
+    "skills/label-data",
+    "skills/review-labels"
+  ],
+  "agents": [
+    "agents/label-coordinator"
+  ],
+  "mcp": ".mcp.json"
+}
