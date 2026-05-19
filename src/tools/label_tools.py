@@ -31,16 +31,21 @@ def build_label_taxonomy(
     progress_tracker.save_progress(session_id, status="taxonomy_built")
 
     # Format trả về Claude — compact để tiết kiệm token
+    # Truncate để đảm bảo response không vượt MCP token limit (~3,000 chars)
+    MAX_LABELS_IN_RESPONSE = 20
+    labels_to_show = taxonomy["labels"][:MAX_LABELS_IN_RESPONSE]
+
     label_summary = [
         {
             "index": i + 1,
             "name": e["name"],
-            "example_url": e["example_urls"][0] if e["example_urls"] else "",
-            "top_keywords": e.get("top_keywords", [])[:3],
+            # Truncate URL dài để tiết kiệm token
+            "example_url": (e["example_urls"][0][:100] if e["example_urls"] else ""),
+            "top_keywords": [kw[:30] for kw in e.get("top_keywords", [])[:3]],
             "estimated_count": e["estimated_count"],
             "source": e["source"],
         }
-        for i, e in enumerate(taxonomy["labels"])
+        for i, e in enumerate(labels_to_show)
     ]
 
     return {
@@ -96,19 +101,32 @@ def save_label_config(
     }
 
 
-def apply_rule_based_labels(session_id: str, use_default_fallbacks: bool = True) -> dict:
+def apply_rule_based_labels(session_id: str, use_default_fallbacks: bool = False) -> dict:
     """
     Phase 2a: Classify toàn bộ data bằng regex rules.
     Lưu checkpoint rule_results.parquet.
     Trả về số lượng đã label và chưa label.
-    use_default_fallbacks=False: bỏ qua broad fallback rules (Danh mục/Sản phẩm mặc định)
-      để các URL này được gửi lên Claude thay vì bị gán nhãn sai.
+    use_default_fallbacks=False (mặc định): bỏ qua broad fallback rules (Danh mục/Sản phẩm mặc định)
+      để các URL mơ hồ được gửi lên Claude Batch API thay vì bị gán nhãn sai.
+    use_default_fallbacks=True: dùng generic fallbacks — chỉ dùng khi KHÔNG có Claude API key.
     """
     df = progress_tracker.load_dataframe(session_id, "raw")
     label_config = progress_tracker.load_label_config(session_id)
 
     clf = classifier.build_classifier(label_config=label_config, use_default_fallbacks=use_default_fallbacks)
     df = clf.classify(df)
+
+    # Validate: chỉ giữ labels nằm trong danh sách đã confirm — tránh sinh nhãn ngoài ý muốn
+    valid_label_names = {e["name"] for e in label_config.get("labels", [])} if label_config else set()
+    if valid_label_names:
+        invalid_mask = df["label"].notna() & ~df["label"].isin(valid_label_names)
+        n_invalid = int(invalid_mask.sum())
+        if n_invalid > 0:
+            df.loc[invalid_mask, "label"] = None
+            df.loc[invalid_mask, "confidence"] = 0.0
+            df.loc[invalid_mask, "method"] = None
+    else:
+        n_invalid = 0
 
     # Lưu kết quả
     progress_tracker.save_dataframe(session_id, df, "rule_results")
@@ -121,6 +139,18 @@ def apply_rule_based_labels(session_id: str, use_default_fallbacks: bool = True)
     # Phân phối nhãn (compact)
     dist = df["label"].value_counts().head(15).to_dict()
 
+    # Phát hiện mất cân bằng: nhãn nào chiếm > 50% tổng rows sau rule-based
+    dominant_label = None
+    dominant_pct = None
+    imbalanced = False
+    if dist and labeled > 0:
+        top_label, top_count = max(dist.items(), key=lambda x: x[1])
+        top_pct = round(top_count / len(df) * 100, 1)
+        if top_pct > 50:
+            imbalanced = True
+            dominant_label = top_label
+            dominant_pct = top_pct
+
     return {
         "session_id": session_id,
         "total_rows": len(df),
@@ -128,4 +158,8 @@ def apply_rule_based_labels(session_id: str, use_default_fallbacks: bool = True)
         "unlabeled": int(unlabeled),
         "coverage_pct": coverage,
         "label_distribution": {str(k): int(v) for k, v in dist.items()},
+        "labels_outside_confirmed_list": n_invalid,
+        "imbalanced": imbalanced,
+        "dominant_label": dominant_label,
+        "dominant_pct": dominant_pct,
     }

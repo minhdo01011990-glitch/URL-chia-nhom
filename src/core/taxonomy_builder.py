@@ -5,10 +5,68 @@ from __future__ import annotations
 import os
 import re
 import unicodedata
+import urllib.request
 from collections import Counter, defaultdict
 from typing import Optional
 
 import pandas as pd
+
+
+def _compute_max_labels(analysis_goal: str) -> int:
+    """
+    Tính số nhãn tối đa phù hợp với mục đích phân tích của người dùng.
+    Không cố định ở 20 — điều chỉnh theo mục đích thực tế.
+    """
+    goal = analysis_goal.lower() if analysis_goal else ""
+
+    # Phân tích traffic tổng quan → ít nhãn, nhóm rộng
+    if any(kw in goal for kw in ["tổng quan", "tong quan", "a)", "5-10", "overview"]):
+        return 10
+
+    # Landing pages / quảng cáo → chi tiết hơn
+    if any(kw in goal for kw in ["trang đích", "trang dich", "landing", "quảng cáo", "quang cao", "b)", "15-25"]):
+        return 25
+
+    # Cấu trúc nội dung / danh mục sản phẩm
+    if any(kw in goal for kw in ["cấu trúc", "cau truc", "danh mục", "danh muc", "sản phẩm", "san pham", "c)", "10-20"]):
+        return 20
+
+    # Mặc định — đủ để phân loại tốt mà không quá chi tiết
+    return 15
+
+
+def _extract_domain(df: "pd.DataFrame") -> Optional[str]:
+    """Lấy domain từ URL đầu tiên hợp lệ trong DataFrame."""
+    for url in df["url"].dropna().head(10):
+        m = re.match(r"^https?://([^/]+)", str(url).strip())
+        if m:
+            return m.group(1)
+    return None
+
+
+def _fetch_sitemap_urls(domain: str, sample_limit: int = 100) -> list[str]:
+    """
+    Thử fetch sitemap.xml để lấy thêm URL mẫu đại diện cho cấu trúc website.
+    Không bắt buộc — nếu không có sitemap hoặc timeout thì bỏ qua.
+    """
+    candidates = [
+        f"https://{domain}/sitemap.xml",
+        f"https://{domain}/sitemap_index.xml",
+        f"https://www.{domain}/sitemap.xml",
+    ]
+    for url in candidates:
+        try:
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "Mozilla/5.0 (compatible; url-labeler/1.0)"}
+            )
+            with urllib.request.urlopen(req, timeout=5) as r:
+                content = r.read(512_000).decode("utf-8", errors="ignore")  # tối đa 512KB
+            urls = re.findall(r"<loc>(https?://[^<\s]+)</loc>", content)
+            if urls:
+                return urls[:sample_limit]
+        except Exception:
+            continue
+    return []
 
 
 def _normalize_vn(text: str) -> str:
@@ -149,6 +207,7 @@ def build_label_taxonomy(
     analysis_goal: str = "",
     sample_size: int = 500,
     use_claude_api: bool = False,
+    fetch_sitemap: bool = True,
 ) -> dict:
     """
     Xây danh sách nhãn gợi ý từ URL patterns + seed labels.
@@ -172,8 +231,22 @@ def build_label_taxonomy(
     total_rows = len(df)
     sample_df = df.sample(min(sample_size, total_rows), random_state=42)
 
-    # Phase 1: Cluster URLs theo signature, thu thập keywords
+    # Phase 1: Cluster URLs theo signature, thu thập keywords từ sample
     clusters = _build_clusters(sample_df)
+
+    # Bổ sung URL từ sitemap để phát hiện patterns ít gặp trong sample ngẫu nhiên
+    if fetch_sitemap:
+        domain = _extract_domain(sample_df)
+        if domain:
+            sitemap_urls = _fetch_sitemap_urls(domain, sample_limit=100)
+            for url in sitemap_urls:
+                sig = _extract_path_signature(url)
+                if sig not in clusters:
+                    # Chỉ thêm signature mới — không đếm vào estimated_count
+                    clusters[sig] = {"urls": [url], "keyword_strings": [], "_sitemap_only": True}
+
+    # Số nhãn tối đa dựa theo mục đích phân tích — không hard-code ở 20
+    MAX_TOTAL_LABELS = _compute_max_labels(analysis_goal)
 
     # Phase 2: Match clusters với seed labels
     structure = _infer_label_structure(seed_labels)
@@ -235,26 +308,51 @@ def build_label_taxonomy(
                 "source": "seed_no_match",
             })
 
-    # Phase 3: Infer nhãn mới cho clusters chưa match — theo cùng cấu trúc seed
-    for sig, cluster_data in unmatched_clusters.items():
-        example_urls = cluster_data["urls"]
-        top_keywords = _extract_top_keywords(cluster_data["keyword_strings"])
-        parts = [p for p in sig.split("/") if p and p != "{slug}"]
-        if not parts:
-            continue
+    # Phase 3: Infer nhãn mới cho clusters chưa match — group theo first path segment
+    # (KHÔNG tạo 1 label per signature — tránh bùng nổ 400+ labels cho site lớn)
+    current_label_count = len({e["name"] for e in label_entries})
+    remaining_slots = max(0, MAX_TOTAL_LABELS - current_label_count)
 
-        inferred_name = _infer_label_name(parts, structure, seed_labels, top_keywords)
-        pattern = _sig_to_pattern(sig)
-        estimated = _estimate_cluster_count(sig, total_rows, len(example_urls), len(sample_df))
-        label_entries.append({
-            "name": inferred_name,
-            "patterns": [pattern],
-            "example_urls": example_urls[:3],
-            "top_keywords": top_keywords[:3],
-            "estimated_count": estimated,
-            "confidence": 0.75,
-            "source": "inferred",
-        })
+    if remaining_slots > 0 and unmatched_clusters:
+        # Gộp tất cả clusters theo first path segment
+        seg_groups: dict[str, dict] = defaultdict(
+            lambda: {"urls": [], "keyword_strings": [], "estimated_count": 0, "sigs": []}
+        )
+        for sig, cluster_data in unmatched_clusters.items():
+            parts = [p for p in sig.split("/") if p and p != "{slug}"]
+            if not parts:
+                continue
+            first_seg = parts[0]
+            seg_groups[first_seg]["urls"].extend(cluster_data["urls"][:2])
+            seg_groups[first_seg]["keyword_strings"].extend(cluster_data["keyword_strings"])
+            seg_groups[first_seg]["sigs"].append(sig)
+            # Cluster từ sitemap không có đủ count để ước tính — bỏ qua estimated_count
+            if not cluster_data.get("_sitemap_only"):
+                seg_groups[first_seg]["estimated_count"] += _estimate_cluster_count(
+                    sig, total_rows, len(cluster_data["urls"]), len(sample_df)
+                )
+
+        # Sort theo estimated_count DESC, giữ top remaining_slots nhóm
+        sorted_groups = sorted(
+            seg_groups.items(),
+            key=lambda x: x[1]["estimated_count"],
+            reverse=True,
+        )[:remaining_slots]
+
+        for first_seg, data in sorted_groups:
+            top_keywords = _extract_top_keywords(data["keyword_strings"])
+            inferred_name = _infer_label_name([first_seg], structure, seed_labels, top_keywords)
+            # Pattern bao phủ tất cả URLs bắt đầu bằng /first_seg/
+            pattern = rf"/{re.escape(first_seg)}/"
+            label_entries.append({
+                "name": inferred_name,
+                "patterns": [pattern],
+                "example_urls": data["urls"][:3],
+                "top_keywords": top_keywords[:3],
+                "estimated_count": data["estimated_count"],
+                "confidence": 0.75,
+                "source": "inferred",
+            })
 
     # Phase 4 (optional): Gọi Claude API cho clusters mơ hồ
     if use_claude_api and os.environ.get("ANTHROPIC_API_KEY"):
@@ -290,12 +388,20 @@ def build_label_taxonomy(
     # Sắp xếp: seed trước, inferred sau, theo estimated_count DESC
     deduped.sort(key=lambda e: (e["source"] not in ("seed", "seed_no_match"), -e["estimated_count"]))
 
+    # Hard cap theo mục đích phân tích — seed labels luôn được giữ
+    if len(deduped) > MAX_TOTAL_LABELS:
+        seed_entries = [e for e in deduped if e["source"] in ("seed", "seed_no_match")]
+        inferred_entries = [e for e in deduped if e["source"] not in ("seed", "seed_no_match")]
+        max_inferred = max(0, MAX_TOTAL_LABELS - len(seed_entries))
+        deduped = seed_entries + inferred_entries[:max_inferred]
+
     return {
         "labels": deduped,
         "structure": structure,
         "seed_labels": seed_labels,
         "total_rows": total_rows,
         "sample_size": len(sample_df),
+        "max_labels_target": MAX_TOTAL_LABELS,
     }
 
 

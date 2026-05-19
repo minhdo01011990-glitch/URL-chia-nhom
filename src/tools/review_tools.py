@@ -6,7 +6,7 @@ from src.core import progress_tracker
 
 
 def get_label_distribution(session_id: str) -> dict:
-    """Trả về bảng thống kê nhãn — không trả raw data."""
+    """Trả về bảng thống kê nhãn + cảnh báo nếu phân phối mất cân bằng."""
     df = progress_tracker.load_dataframe(session_id, "final")
 
     total = len(df)
@@ -29,11 +29,23 @@ def get_label_distribution(session_id: str) -> dict:
             "avg_traffic": round(row["avg_traffic"], 0),
         })
 
+    # Phát hiện nhãn chiếm > 50% tổng — có thể cần chia nhỏ hơn
+    imbalanced = [r for r in rows if r["pct"] > 50]
+    warning = None
+    if imbalanced:
+        top = imbalanced[0]
+        warning = (
+            f"⚠ Nhãn '{top['label']}' chiếm {top['pct']}% URL ({top['count']:,}/{total:,}) "
+            f"— có thể cần chia thành các nhóm nhỏ hơn để phân tích hiệu quả hơn."
+        )
+
     return {
         "session_id": session_id,
         "total_rows": total,
         "label_count": len(rows),
         "distribution": rows,
+        "imbalanced_labels": imbalanced,
+        "warning": warning,
     }
 
 

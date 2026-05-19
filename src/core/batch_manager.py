@@ -72,7 +72,7 @@ def submit_batch(
     """
     import anthropic
 
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(timeout=30.0)
     system_content = _build_system_content(valid_labels)
     requests = [
         _build_batch_request(row, system_content)
@@ -104,13 +104,36 @@ def submit_all_batches(
 
 def poll_batch(batch_id: str) -> dict:
     """
-    Trả về dict với keys: status, request_counts, batch_id.
-    status: 'in_progress' | 'ended' | 'error'
+    Trả về dict với keys: status, request_counts, batch_id, created_at, ended_at.
+    status: 'in_progress' | 'ended' | 'canceling' | 'error'
     """
     import anthropic
 
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(timeout=30.0)
     batch = client.beta.messages.batches.retrieve(batch_id)
+
+    created_at = None
+    ended_at = None
+    try:
+        if batch.created_at:
+            created_at = batch.created_at.isoformat() if hasattr(batch.created_at, "isoformat") else str(batch.created_at)
+        if batch.ended_at:
+            ended_at = batch.ended_at.isoformat() if hasattr(batch.ended_at, "isoformat") else str(batch.ended_at)
+    except Exception:
+        pass
+
+    # Tính thời gian chạy (giây) để phát hiện batch treo
+    elapsed_seconds = None
+    try:
+        import datetime
+        if batch.created_at:
+            now = datetime.datetime.now(datetime.timezone.utc)
+            created = batch.created_at
+            if not created.tzinfo:
+                created = created.replace(tzinfo=datetime.timezone.utc)
+            elapsed_seconds = int((now - created).total_seconds())
+    except Exception:
+        pass
 
     return {
         "batch_id": batch_id,
@@ -122,7 +145,28 @@ def poll_batch(batch_id: str) -> dict:
             "canceled": batch.request_counts.canceled,
             "expired": batch.request_counts.expired,
         },
+        "created_at": created_at,
+        "ended_at": ended_at,
+        "elapsed_seconds": elapsed_seconds,
     }
+
+
+def cancel_batch(batch_id: str) -> dict:
+    """Hủy một batch đang chạy. Trả về status mới sau khi cancel."""
+    import anthropic
+
+    client = anthropic.Anthropic(timeout=30.0)
+    try:
+        batch = client.beta.messages.batches.cancel(batch_id)
+        return {
+            "batch_id": batch_id,
+            "cancelled": True,
+            "status": batch.processing_status,
+        }
+    except anthropic.NotFoundError:
+        return {"batch_id": batch_id, "cancelled": False, "error": "not_found"}
+    except Exception as e:
+        return {"batch_id": batch_id, "cancelled": False, "error": str(e)[:100]}
 
 
 def wait_for_batch(
@@ -150,8 +194,12 @@ def stream_batch_results(
     Parse index → label name; fallback to direct name match nếu model không tuân thủ.
     """
     import anthropic
+    import httpx
 
-    client = anthropic.Anthropic()
+    # connect timeout ngắn; read timeout dài (streaming kết quả batch lớn)
+    client = anthropic.Anthropic(
+        timeout=httpx.Timeout(connect=10.0, read=600.0, write=30.0, pool=30.0)
+    )
     valid_set = set(valid_labels)
 
     for result in client.beta.messages.batches.results(batch_id):
