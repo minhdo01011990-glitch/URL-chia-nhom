@@ -13,24 +13,28 @@ Hỗ trợ đến 75,000 hàng. Kết hợp rule-based (miễn phí) + Claude Ba
 - [Python 3.9+](https://python.org/downloads)
 - [Claude Desktop App](https://claude.ai/download) — tải về và cài đặt
 
-### Bước 1 — Cài MCP server
-
-Mở Terminal và chạy:
+### 2 lệnh là xong
 
 ```bash
 pip install url-labeler
+url-labeler-install
 ```
 
-### Bước 2 — Thêm vào Claude Desktop App
+Lệnh `url-labeler-install` tự động thêm plugin vào Claude Desktop App.  
+Sau đó tắt hoàn toàn và mở lại Claude Desktop App.
 
-Mở file cấu hình của Claude Desktop App:
+**Biểu tượng 🔧 xuất hiện trong chat = cài đặt thành công.**
+
+---
+
+### Cài đặt thủ công (nếu muốn)
+
+Thêm vào file cấu hình Claude Desktop App:
 
 | Hệ điều hành | Đường dẫn |
 |---|---|
 | macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
 | Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
-
-Thêm đoạn sau vào file (nếu file chưa có thì tạo mới):
 
 ```json
 {
@@ -43,11 +47,6 @@ Thêm đoạn sau vào file (nếu file chưa có thì tạo mới):
 ```
 
 > Nếu file đã có `mcpServers` với server khác, chỉ cần thêm phần `"url-labeler": {...}` vào trong.
-
-### Bước 3 — Khởi động lại Claude Desktop App
-
-Tắt hoàn toàn và mở lại Claude Desktop App.  
-Biểu tượng 🔧 xuất hiện trong chat = plugin đã kết nối thành công.
 
 ---
 
