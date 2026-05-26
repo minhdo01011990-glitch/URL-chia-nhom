@@ -1,7 +1,7 @@
 # url-labeler
 
 Công cụ đánh nhãn URL theo chủ đề nội dung cho phân tích organic traffic SEO.  
-Chạy trực tiếp trong **Claude Desktop App** — không cần viết code, không cần terminal.
+Chạy trong **Claude Desktop App** hoặc **Claude Code** — không cần viết code.
 
 Hỗ trợ đến 75,000 hàng. Kết hợp rule-based (miễn phí) + Claude Batch API (~$0.02–0.10).
 
@@ -10,8 +10,9 @@ Hỗ trợ đến 75,000 hàng. Kết hợp rule-based (miễn phí) + Claude Ba
 ## Cài đặt
 
 ### Yêu cầu
+
 - [Python 3.9+](https://python.org/downloads)
-- [Claude Desktop App](https://claude.ai/download) — tải về và cài đặt
+- [Claude Desktop App](https://claude.ai/download) **hoặc** [Claude Code](https://claude.ai/code)
 
 ### 2 lệnh là xong
 
@@ -20,16 +21,34 @@ pip install url-labeler
 url-labeler-install
 ```
 
-Lệnh `url-labeler-install` tự động thêm plugin vào Claude Desktop App.  
-Sau đó tắt hoàn toàn và mở lại Claude Desktop App.
+Lệnh `url-labeler-install` tự động cấu hình tất cả:
 
-**Biểu tượng 🔧 xuất hiện trong chat = cài đặt thành công.**
+| Môi trường | Sau khi cài | Cần thêm |
+|---|---|---|
+| **Claude Desktop App** | ✅ Sẵn sàng | Tắt + mở lại App |
+| **Claude Code — MCP tools** | ✅ Sẵn sàng | Không |
+| **Claude Code — slash commands** | ✅ Sẵn sàng | Mở terminal mới |
+
+### Sau khi chạy `url-labeler-install`
+
+**Claude Desktop App:**
+1. Tắt hoàn toàn (Cmd+Q trên Mac, không chỉ đóng cửa sổ)
+2. Mở lại — biểu tượng **🔧** trong chat = cài đặt thành công
+
+**Claude Code:**
+- MCP tools hoạt động ngay, không cần làm gì thêm
+- Slash commands (`/url-labeler:start`): mở terminal mới, hoặc chạy `source ~/.zshrc`
 
 ---
 
 ### Cài đặt thủ công (nếu muốn)
 
-Thêm vào file cấu hình Claude Desktop App:
+<details>
+<summary>Mở rộng để xem</summary>
+
+#### Claude Desktop App
+
+Thêm vào file cấu hình:
 
 | Hệ điều hành | Đường dẫn |
 |---|---|
@@ -46,31 +65,63 @@ Thêm vào file cấu hình Claude Desktop App:
 }
 ```
 
-> Nếu file đã có `mcpServers` với server khác, chỉ cần thêm phần `"url-labeler": {...}` vào trong.
+#### Claude Code
+
+Thêm vào `~/.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "url-labeler": {
+      "command": "url-labeler-server"
+    }
+  }
+}
+```
+
+Để dùng slash commands, thêm vào `~/.zshrc` hoặc `~/.bashrc`:
+
+```bash
+function claude() { command claude --plugin-dir ~/.local/share/url-labeler/plugin "$@"; }
+```
+
+</details>
 
 ---
 
 ## Sử dụng
 
-Mở chat trong Claude Desktop App và gõ:
+### Cách đơn giản nhất
+
+Trong Claude Desktop App hoặc Claude Code, gõ:
 
 ```
-Hãy đánh nhãn file URL này cho tôi: https://docs.google.com/spreadsheets/d/ID/edit
+Đánh nhãn file URL này cho tôi: /Users/ten/data.csv
 ```
 
-hoặc:
+hoặc với Google Sheets:
 
 ```
-Đánh nhãn file /Users/ten/data.csv
+Đánh nhãn file URL này cho tôi: https://docs.google.com/spreadsheets/d/ID/edit
 ```
 
-Claude sẽ tự động hỏi **3 câu ngắn** rồi xử lý:
+Claude sẽ hỏi **4 câu ngắn** rồi tự xử lý:
 
 1. Tên thương hiệu
 2. Domain
-3. Nhãn mẫu bạn muốn dùng
+3. Mục đích phân tích
+4. Nhãn mẫu bạn muốn dùng
 
-Kết quả lưu tại `~/Downloads/labeled_output.xlsx` (có thể chỉ định đường dẫn khác).
+### Slash commands (Claude Code)
+
+```
+/url-labeler:start          # Chạy toàn bộ pipeline (khuyến nghị)
+/url-labeler:build-labels   # Chỉ xây danh sách nhãn
+/url-labeler:label-data     # Chỉ đánh nhãn
+/url-labeler:review-labels  # Chỉ review kết quả
+```
+
+Kết quả lưu tại `./labeled_output.xlsx` (có thể chỉ định đường dẫn khác).
 
 ---
 
