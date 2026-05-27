@@ -78,6 +78,20 @@ Thêm vào `~/.claude/settings.json`:
 
 ---
 
+## Cập nhật
+
+Khi có phiên bản mới:
+
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/minhdo01011990-glitch/URL-chia-nhom/main/install.sh)
+```
+
+Sau đó tải lại file **`url-labeler.plugin`** từ [Releases](https://github.com/minhdo01011990-glitch/URL-chia-nhom/releases/latest) → Claude → Settings → Plugins → xóa plugin cũ → Upload file mới.
+
+> **v1.3.1:** Lệnh khởi động đổi từ `/url-labeler:start` → `/url-labeler:URL`
+
+---
+
 ## Sử dụng
 
 ### Cách đơn giản nhất
