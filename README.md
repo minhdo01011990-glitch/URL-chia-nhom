@@ -19,11 +19,10 @@ Hỗ trợ đến 75,000 hàng. Kết hợp rule-based (miễn phí) + Claude Ba
 ### Bước 1 — Cài MCP server (terminal)
 
 ```bash
-pip install url-labeler
-url-labeler-install
+bash <(curl -sSL https://raw.githubusercontent.com/minhdo01011990-glitch/URL-chia-nhom/main/install.sh)
 ```
 
-Lệnh `url-labeler-install` tự động đăng ký MCP server vào:
+Script tự động tìm đúng Python, cài `url-labeler` từ PyPI và đăng ký MCP server vào:
 - **Claude Desktop App** — ghi vào `claude_desktop_config.json`
 - **Claude Code** — ghi vào `~/.claude/settings.json`
 
@@ -44,7 +43,7 @@ Lệnh `url-labeler-install` tự động đăng ký MCP server vào:
 
 ---
 
-## Cài đặt MCP thủ công (nếu `url-labeler-install` không chạy được)
+## Cài đặt MCP thủ công (nếu script không chạy được)
 
 #### Claude Desktop App
 

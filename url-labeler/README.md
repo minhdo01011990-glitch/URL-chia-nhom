@@ -9,11 +9,10 @@ A Cowork plugin that classifies website URLs by content type (homepage, category
 ### Step 1 — Install MCP server (terminal)
 
 ```bash
-pip install url-labeler
-url-labeler-install
+bash <(curl -sSL https://raw.githubusercontent.com/minhdo01011990-glitch/URL-chia-nhom/main/install.sh)
 ```
 
-`url-labeler-install` registers the MCP server in both Claude Desktop App and Claude Code automatically.
+The script detects the correct Python version, installs `url-labeler` from PyPI, and registers the MCP server in both Claude Desktop App and Claude Code automatically.
 
 **After running:**
 
