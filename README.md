@@ -14,43 +14,41 @@ Hỗ trợ đến 75,000 hàng. Kết hợp rule-based (miễn phí) + Claude Ba
 - [Python 3.9+](https://python.org/downloads)
 - [Claude Desktop App](https://claude.ai/download) **hoặc** [Claude Code](https://claude.ai/code)
 
-### 2 lệnh là xong
+---
+
+### Bước 1 — Cài MCP server (terminal)
 
 ```bash
 pip install url-labeler
 url-labeler-install
 ```
 
-Lệnh `url-labeler-install` tự động cấu hình tất cả:
+Lệnh `url-labeler-install` tự động đăng ký MCP server vào:
+- **Claude Desktop App** — ghi vào `claude_desktop_config.json`
+- **Claude Code** — ghi vào `~/.claude/settings.json`
 
-| Môi trường | Sau khi cài | Cần thêm |
-|---|---|---|
-| **Claude Desktop App** | ✅ Sẵn sàng | Tắt + mở lại App |
-| **Claude Code — MCP tools** | ✅ Sẵn sàng | Không |
-| **Claude Code — slash commands** | ✅ Sẵn sàng | Mở terminal mới |
+**Sau khi chạy:**
 
-### Sau khi chạy `url-labeler-install`
-
-**Claude Desktop App:**
-1. Tắt hoàn toàn (Cmd+Q trên Mac, không chỉ đóng cửa sổ)
-2. Mở lại — biểu tượng **🔧** trong chat = cài đặt thành công
-
-**Claude Code:**
-- MCP tools hoạt động ngay, không cần làm gì thêm
-- Slash commands (`/url-labeler:URL`): mở terminal mới, hoặc chạy `source ~/.zshrc`
+| Môi trường | Cần làm thêm |
+|---|---|
+| Claude Desktop App | Tắt hoàn toàn (Cmd+Q) rồi mở lại — biểu tượng 🔧 = thành công |
+| Claude Code | Không cần làm gì, hoạt động ngay |
 
 ---
 
-### Cài đặt thủ công (nếu muốn)
+### Bước 2 — Cài plugin (thủ công)
 
-<details>
-<summary>Mở rộng để xem</summary>
+1. Tải file **`url-labeler.plugin`** từ trang [Releases](https://github.com/minhdo01011990-glitch/URL-chia-nhom/releases/latest)
+2. Mở Claude → **Settings → Plugins → Upload file**
+3. Chọn file vừa tải → xác nhận
+
+---
+
+## Cài đặt MCP thủ công (nếu `url-labeler-install` không chạy được)
 
 #### Claude Desktop App
 
-Thêm vào file cấu hình:
-
-| Hệ điều hành | Đường dẫn |
+| Hệ điều hành | Đường dẫn file cấu hình |
 |---|---|
 | macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
 | Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
@@ -79,14 +77,6 @@ Thêm vào `~/.claude/settings.json`:
 }
 ```
 
-Để dùng slash commands, thêm vào `~/.zshrc` hoặc `~/.bashrc`:
-
-```bash
-function claude() { command claude --plugin-dir ~/.local/share/url-labeler/plugin "$@"; }
-```
-
-</details>
-
 ---
 
 ## Sử dụng
@@ -112,10 +102,10 @@ Claude sẽ hỏi **4 câu ngắn** rồi tự xử lý:
 3. Mục đích phân tích
 4. Nhãn mẫu bạn muốn dùng
 
-### Slash commands (Claude Code)
+### Slash commands (sau khi cài plugin)
 
 ```
-/url-labeler:URL          # Chạy toàn bộ pipeline (khuyến nghị)
+/url-labeler:URL            # Chạy toàn bộ pipeline (khuyến nghị)
 /url-labeler:build-labels   # Chỉ xây danh sách nhãn
 /url-labeler:label-data     # Chỉ đánh nhãn
 /url-labeler:review-labels  # Chỉ review kết quả
