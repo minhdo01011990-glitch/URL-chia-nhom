@@ -9,7 +9,7 @@
   "repository": "https://github.com/maytinh/url-labeler",
   "license": "MIT",
   "skills": [
-    "skills/start",
+    "skills/URL",
     "skills/build-labels",
     "skills/label-data",
     "skills/review-labels"

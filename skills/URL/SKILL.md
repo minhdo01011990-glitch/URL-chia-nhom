@@ -7,9 +7,9 @@ Kích hoạt `label-coordinator` agent để bắt đầu quy trình đánh nhã
 
 **Cách dùng:** Cung cấp nguồn dữ liệu khi gọi lệnh:
 ```
-/url-labeler:start https://docs.google.com/spreadsheets/d/...
-/url-labeler:start /đường/dẫn/file.csv
-/url-labeler:start /đường/dẫn/file.xlsx
+/url-labeler:URL https://docs.google.com/spreadsheets/d/...
+/url-labeler:URL /đường/dẫn/file.csv
+/url-labeler:URL /đường/dẫn/file.xlsx
 ```
 
 Agent sẽ:

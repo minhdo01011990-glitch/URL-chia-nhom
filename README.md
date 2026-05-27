@@ -37,7 +37,7 @@ Lệnh `url-labeler-install` tự động cấu hình tất cả:
 
 **Claude Code:**
 - MCP tools hoạt động ngay, không cần làm gì thêm
-- Slash commands (`/url-labeler:start`): mở terminal mới, hoặc chạy `source ~/.zshrc`
+- Slash commands (`/url-labeler:URL`): mở terminal mới, hoặc chạy `source ~/.zshrc`
 
 ---
 
@@ -115,7 +115,7 @@ Claude sẽ hỏi **4 câu ngắn** rồi tự xử lý:
 ### Slash commands (Claude Code)
 
 ```
-/url-labeler:start          # Chạy toàn bộ pipeline (khuyến nghị)
+/url-labeler:URL          # Chạy toàn bộ pipeline (khuyến nghị)
 /url-labeler:build-labels   # Chỉ xây danh sách nhãn
 /url-labeler:label-data     # Chỉ đánh nhãn
 /url-labeler:review-labels  # Chỉ review kết quả

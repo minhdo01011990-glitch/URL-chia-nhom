@@ -177,7 +177,7 @@ def main() -> None:
         func_line, rc_file = _add_shell_alias(plugin_dir)
         if rc_file:
             print(f"✓ [4/4] Shell function đã thêm vào {rc_file}")
-            print(f"        (cho phép dùng /url-labeler:start trong terminal mới)")
+            print(f"        (cho phép dùng /url-labeler:URL trong terminal mới)")
         elif func_line:
             print("✓ [4/4] Shell function: đã có sẵn")
         else:
@@ -195,7 +195,7 @@ def main() -> None:
     print()
     print("  Claude Code / Terminal:")
     print("    • MCP tools: hoạt động ngay, không cần làm gì thêm")
-    print("    • Slash commands (/url-labeler:start): mở terminal mới")
+    print("    • Slash commands (/url-labeler:URL): mở terminal mới")
     print("      hoặc chạy:  source ~/.zshrc")
     print()
     print('  Bắt đầu: "Đánh nhãn file URL này cho tôi: /đường/dẫn/file.csv"')

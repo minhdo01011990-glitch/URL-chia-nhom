@@ -34,7 +34,7 @@ The plugin has two distinct layers that must be understood together:
 
 ### Layer 1 — Claude Code Plugin (user-facing)
 
-Skills in `skills/` define slash commands. The main entry point is `/url-labeler:start`, which activates the `label-coordinator` agent. The agent conducts a **5-question intake dialog** before calling any MCP tools:
+Skills in `skills/` define slash commands. The main entry point is `/url-labeler:URL`, which activates the `label-coordinator` agent. The agent conducts a **5-question intake dialog** before calling any MCP tools:
 
 1. **Data source** — file path or Google Sheets URL
 2. **Website description** — products/services, used as context for taxonomy building
@@ -99,7 +99,7 @@ MCP tool return values must never include raw data rows. Return only: row counts
 
 | Skill | Command | Purpose |
 |---|---|---|
-| `start` | `/url-labeler:start` | Full pipeline with guided intake dialog (recommended) |
+| `URL` | `/url-labeler:URL` | Full pipeline with guided intake dialog (recommended) |
 | `build-labels` | `/url-labeler:build-labels` | Step 1 only — build label taxonomy |
 | `label-data` | `/url-labeler:label-data` | Step 2 only — apply labels |
 | `review-labels` | `/url-labeler:review-labels` | Step 3 only — review and correct |
