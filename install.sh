@@ -12,8 +12,8 @@ for candidate in python3.13 python3.12 python3.11 python3.10 python3.9 python3; 
         _major=$("$candidate" -c "import sys; print(sys.version_info.major)" 2>/dev/null || echo 0)
         _minor=$("$candidate" -c "import sys; print(sys.version_info.minor)" 2>/dev/null || echo 0)
         if [[ "$_major" -eq 3 && "$_minor" -ge 9 ]]; then
-            # Kiểm tra pip có chạy được không trước khi chọn
-            if "$candidate" -m pip --version &>/dev/null; then
+            # Kiểm tra pyexpat (module pip dùng khi install) — Homebrew 3.12 thường bị lỗi này
+            if "$candidate" -c "import pyexpat" &>/dev/null; then
                 PYTHON="$candidate"
                 break
             fi
