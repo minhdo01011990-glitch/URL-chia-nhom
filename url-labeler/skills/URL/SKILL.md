@@ -147,8 +147,26 @@ Call MCP tools in this order:
 4. `save_label_config` — call only after user confirms with [S] or after edits are done
 5. `apply_rule_based_labels` — rule-based pass (~85–90% of rows, 0 tokens)
 6. `submit_claude_batch` — send ambiguous rows to Batch API (Haiku model)
-7. `poll_batch_status` — check until complete; inform user of progress
-8. `merge_batch_results` — merge batch results back
+7. **STOP — present polling options, do NOT call any tool until user responds:**
+
+   ```
+   📤 Đã gửi [X] hàng lên Batch API ([N] batch)
+   Session: [session_id]
+   Chi phí ước tính: ~$[cost]
+   Thời gian xử lý thông thường: 10–30 phút
+
+   Chọn cách theo dõi kết quả:
+   ──────────────────────────────────────────────
+   [A] Tự động — kiểm tra sau:  10 / 15 / 20 / 25 / 30  phút
+   [B] Thủ công — tôi tự theo dõi, sẽ báo lại khi xong
+   ──────────────────────────────────────────────
+   ```
+
+   **[A] Auto**: Sau đúng khoảng thời gian user chọn, gọi `poll_batch_status` **đúng 1 lần**. Nếu chưa xong → hỏi chờ thêm hay chuyển thủ công. Không bao giờ poll nhiều lần trong cùng 1 lượt.
+
+   **[B] Thủ công**: Lưu session_id, chờ user báo "batch xong rồi" → gọi `poll_batch_status` **đúng 1 lần** để xác nhận trước khi merge.
+
+8. `merge_batch_results` — merge batch results back (chỉ gọi sau khi `all_ended: true`)
 9. `export_to_excel` — write final output
 10. `get_label_distribution` — show distribution summary to user
 11. Offer optional `get_low_confidence_samples` for review
