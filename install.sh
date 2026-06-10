@@ -5,15 +5,18 @@ set -euo pipefail
 
 BOLD="\033[1m"; GREEN="\033[32m"; RED="\033[31m"; RESET="\033[0m"
 
-# Tìm Python 3.9+ — thử theo thứ tự ưu tiên để tránh dùng system Python bị lỗi
+# Tìm Python 3.9+ có pip hoạt động — bỏ qua nếu pip bị lỗi (vd: Homebrew pyexpat bug)
 PYTHON=""
 for candidate in python3.13 python3.12 python3.11 python3.10 python3.9 python3; do
     if command -v "$candidate" &>/dev/null; then
         _major=$("$candidate" -c "import sys; print(sys.version_info.major)" 2>/dev/null || echo 0)
         _minor=$("$candidate" -c "import sys; print(sys.version_info.minor)" 2>/dev/null || echo 0)
         if [[ "$_major" -eq 3 && "$_minor" -ge 9 ]]; then
-            PYTHON="$candidate"
-            break
+            # Kiểm tra pip có chạy được không trước khi chọn
+            if "$candidate" -m pip --version &>/dev/null; then
+                PYTHON="$candidate"
+                break
+            fi
         fi
     fi
 done
