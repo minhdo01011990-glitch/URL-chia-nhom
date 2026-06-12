@@ -29,7 +29,14 @@ fi
 echo -e "${BOLD}Python:${RESET} $("$PYTHON" --version)"
 
 echo -e "${BOLD}Cài đặt url-labeler từ PyPI...${RESET}"
-"$PYTHON" -m pip install --quiet --upgrade url-labeler
+# Ưu tiên uv/pipx để cài vào ~/.local/bin (global, không phụ thuộc venv)
+if command -v uv &>/dev/null; then
+    uv tool install url-labeler --upgrade --quiet
+elif command -v pipx &>/dev/null; then
+    pipx install url-labeler --force --quiet
+else
+    "$PYTHON" -m pip install --user --quiet --upgrade url-labeler
+fi
 
 echo -e "${BOLD}Đăng ký MCP server...${RESET}"
 "$("$PYTHON" -c "import sysconfig; print(sysconfig.get_path('scripts'))")/url-labeler-install" 2>/dev/null \

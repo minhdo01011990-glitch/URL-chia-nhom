@@ -26,7 +26,14 @@ def _claude_code_settings_path() -> pathlib.Path:
 
 
 def _server_command() -> str:
+    # Prefer stable user-level locations over environment-specific venv paths
+    user_local = pathlib.Path.home() / ".local" / "bin" / "url-labeler-server"
+    if user_local.exists():
+        return str(user_local)
     cmd = shutil.which("url-labeler-server")
+    # Skip venv paths — they break when the venv is removed or deactivated
+    if cmd and ("/.venv/" in cmd or "/venv/" in cmd):
+        return "url-labeler-server"
     return cmd if cmd else "url-labeler-server"
 
 
