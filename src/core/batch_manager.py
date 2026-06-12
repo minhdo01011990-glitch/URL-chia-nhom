@@ -96,6 +96,8 @@ def submit_all_batches(
 
     batch_ids = []
     for i, chunk in enumerate(chunks):
+        if chunk.empty:
+            continue
         batch_id = submit_batch(chunk, valid_labels, batch_index=i)
         batch_ids.append(batch_id)
 

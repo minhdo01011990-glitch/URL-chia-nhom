@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json as _json
+import math as _math
 import re as _re
 
 from src.core import batch_manager, progress_tracker
@@ -31,25 +32,34 @@ def submit_claude_batch(session_id: str) -> dict:
             "message": "Tất cả hàng đã được label bằng rules — không cần gọi Claude API",
         }
 
-    batch_ids = batch_manager.submit_all_batches(unlabeled_df, valid_labels)
+    # Submit từng batch và lưu batch_ids ngay sau mỗi lần thành công.
+    # Nếu batch thứ N+1 bị lỗi, các batch 0..N đã lưu vẫn được merge được.
+    n = len(unlabeled_df)
+    n_batches = _math.ceil(n / batch_manager.BATCH_MAX_SIZE)
+    batch_ids: list[str] = []
+    for i in range(n_batches):
+        chunk = unlabeled_df.iloc[i * batch_manager.BATCH_MAX_SIZE: (i + 1) * batch_manager.BATCH_MAX_SIZE]
+        if chunk.empty:
+            continue
+        batch_id = batch_manager.submit_batch(chunk, valid_labels, batch_index=i)
+        batch_ids.append(batch_id)
+        # Lưu ngay để tránh mất batch_id nếu submit tiếp theo bị lỗi
+        progress_tracker.save_progress(
+            session_id,
+            status="batch_submitted",
+            batch_ids=batch_ids,
+            unlabeled_count=n,
+        )
 
     # Ước tính chi phí với các tối ưu:
     # - System prompt (~100 tokens) cached → cache_read price = 10% of $0.25 = $0.025/1M
     # - User message (~20 tokens: path + keywords) → $0.25/1M
     # - Output (~2 tokens: chỉ số index) → $1.25/1M
-    n = len(unlabeled_df)
     est_cost = round(
         (n * 100 / 1_000_000 * 0.025)  # system prompt (cached read)
         + (n * 20 / 1_000_000 * 0.25)  # user message input
         + (n * 2 / 1_000_000 * 1.25),  # output (index digit)
         5,
-    )
-
-    progress_tracker.save_progress(
-        session_id,
-        status="batch_submitted",
-        batch_ids=batch_ids,
-        unlabeled_count=n,
     )
 
     return {
@@ -179,12 +189,13 @@ def merge_batch_results(session_id: str) -> dict:
     if batch_ids:
         df = batch_manager.merge_batch_results(df, batch_ids, valid_labels)
 
-    # Fallback: hàng vẫn chưa có nhãn → gán "Khác"
-    still_unlabeled = df["label"].isna().sum()
-    if still_unlabeled > 0:
-        df.loc[df["label"].isna(), "label"] = "Khác"
-        df.loc[df["method"].isna(), "method"] = "fallback"
-        df.loc[df["confidence"] == 0.0, "confidence"] = 0.30
+    # Fallback: hàng vẫn chưa có nhãn sau khi merge → gán "Khác"
+    # Dùng mask nhất quán thay vì 3 điều kiện khác nhau để tránh gán sai
+    fallback_mask = df["label"].isna()
+    if fallback_mask.any():
+        df.loc[fallback_mask, "label"] = "Khác"
+        df.loc[fallback_mask, "method"] = "fallback"
+        df.loc[fallback_mask, "confidence"] = 0.30
 
     progress_tracker.save_dataframe(session_id, df, "final")
     progress_tracker.save_progress(session_id, status="merged")
