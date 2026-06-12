@@ -47,9 +47,9 @@ echo -e "${BOLD}Đăng ký MCP server...${RESET}"
 # Đảm bảo MCP config luôn trỏ đến ~/.local/bin, không phải venv path
 SERVER_BIN="$HOME/.local/bin/url-labeler-server"
 if [[ -f "$SERVER_BIN" ]]; then
-    "$PYTHON" - "$SERVER_BIN" <<'PYEOF'
-import json, pathlib, sys
-server = sys.argv[1]
+    PYCODE='
+import json, pathlib, sys, os
+server = os.environ["_UL_SERVER"]
 configs = [
     pathlib.Path.home() / ".claude" / "settings.json",
     pathlib.Path.home() / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json",
@@ -59,9 +59,11 @@ for p in configs:
         continue
     d = json.loads(p.read_text(encoding="utf-8"))
     mcp = d.get("mcpServers", {}).get("url-labeler", {})
-    if "/.venv/" in mcp.get("command", "") or "/venv/" in mcp.get("command", ""):
+    cmd = mcp.get("command", "")
+    if "/.venv/" in cmd or "/venv/" in cmd:
         d["mcpServers"]["url-labeler"]["command"] = server
         p.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(f"   ✓ Đã sửa path → {server}  ({p})")
-PYEOF
+        print("   ✓ Da sua path → " + server + "  (" + str(p) + ")")
+'
+    _UL_SERVER="$SERVER_BIN" "$PYTHON" -c "$PYCODE"
 fi
