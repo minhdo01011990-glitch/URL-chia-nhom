@@ -39,6 +39,29 @@ else
 fi
 
 echo -e "${BOLD}Đăng ký MCP server...${RESET}"
-"$("$PYTHON" -c "import sysconfig; print(sysconfig.get_path('scripts'))")/url-labeler-install" 2>/dev/null \
+"$HOME/.local/bin/url-labeler-install" 2>/dev/null \
+    || "$("$PYTHON" -c "import sysconfig; print(sysconfig.get_path('scripts'))")/url-labeler-install" 2>/dev/null \
     || "$("$PYTHON" -m site --user-base 2>/dev/null)/bin/url-labeler-install" 2>/dev/null \
     || url-labeler-install
+
+# Đảm bảo MCP config luôn trỏ đến ~/.local/bin, không phải venv path
+SERVER_BIN="$HOME/.local/bin/url-labeler-server"
+if [[ -f "$SERVER_BIN" ]]; then
+    "$PYTHON" - "$SERVER_BIN" <<'PYEOF'
+import json, pathlib, sys
+server = sys.argv[1]
+configs = [
+    pathlib.Path.home() / ".claude" / "settings.json",
+    pathlib.Path.home() / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json",
+]
+for p in configs:
+    if not p.exists():
+        continue
+    d = json.loads(p.read_text(encoding="utf-8"))
+    mcp = d.get("mcpServers", {}).get("url-labeler", {})
+    if "/.venv/" in mcp.get("command", "") or "/venv/" in mcp.get("command", ""):
+        d["mcpServers"]["url-labeler"]["command"] = server
+        p.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"   ✓ Đã sửa path → {server}  ({p})")
+PYEOF
+fi
