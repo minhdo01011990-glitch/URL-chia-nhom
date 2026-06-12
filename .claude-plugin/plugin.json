@@ -9,13 +9,7 @@
   "repository": "https://github.com/maytinh/url-labeler",
   "license": "MIT",
   "skills": [
-    "skills/URL",
-    "skills/build-labels",
-    "skills/label-data",
-    "skills/review-labels"
-  ],
-  "agents": [
-    "agents/label-coordinator"
+    "skills/URL"
   ],
   "mcp": ".mcp.json"
 }

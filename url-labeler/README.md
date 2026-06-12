@@ -29,14 +29,9 @@ The script detects the correct Python version, installs `url-labeler` from PyPI,
 
 ---
 
-## Skills
+## Cách dùng
 
-| Skill | Command | Purpose |
-|---|---|---|
-| `URL` | `/url-labeler:URL` | Full guided pipeline — recommended entry point |
-| `build-labels` | `/url-labeler:build-labels` | Step 1 only — build label taxonomy |
-| `label-data` | `/url-labeler:label-data` | Step 2 only — apply labels |
-| `review-labels` | `/url-labeler:review-labels` | Step 3 only — review and correct |
+Gõ `/URL` để bắt đầu. Claude sẽ hướng dẫn qua 6 câu hỏi ngắn rồi tự động chạy toàn bộ pipeline.
 
 ---
 
@@ -79,28 +74,9 @@ export GOOGLE_SERVICE_ACCOUNT_JSON='{"type":"service_account",...}'
 
 ## Usage
 
-### Full pipeline (recommended)
-
-Type `/url-labeler:URL` — Claude will guide you through a dialog:
-
-1. Data source (file path, Google Sheets URL, or paste)
-2. Brand name and domain
-3. Analysis goal
-4. Seed labels (3–10 examples in your naming style)
-
-### Step-by-step
-
-Run each step independently when you need more control:
-
-```
-/url-labeler:build-labels   → design your label taxonomy
-/url-labeler:label-data     → apply labels to data
-/url-labeler:review-labels  → inspect and correct results
-```
-
 ### Resume interrupted runs
 
-Sessions are saved to `~/.url-labeler/{session_id}/` as Parquet files. If interrupted, run `/url-labeler:URL` and say "resume session abc123" to pick up where you left off.
+Sessions are saved to `~/.url-labeler/{session_id}/` as Parquet files. If interrupted, run `/URL` and say "resume session abc123" to pick up where you left off.
 
 ---
 
